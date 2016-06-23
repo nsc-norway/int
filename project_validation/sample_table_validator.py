@@ -7,9 +7,50 @@ import requests
 from openpyxl import load_workbook
 
 SERVER="https://portal.sequencing.uio.no"
+MAX_SAMPLES = 10000
 
-def validate_workbook(wb):
+class WorksheetFormatException(Exception):
+    pass
+
+
+def validate_workbook(wb, expected_num_samples):
+    """Throws exception if the format is incorrect.
+
+    Returns errors if the data entry is incorrect."""
     ws = wb.worksheets[0]
+
+    headers = [
+            "Number",
+            "Plate",
+            "Sample name",
+            "Conc.",
+            "A260/280",
+            "A260/230",
+            "Volume provided",
+            "Total DNA / RNA",
+            "Index name",
+            "Index Seq",
+            "Primers, Linkers or RE",
+            "Approx no. Reads"
+            ]
+
+    col_of = {}
+
+    for i,header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=i).lower()
+        if cell.startswith(header.lower()):
+            col_of[header] = i
+        else:
+            raise WorksheetFormatException()
+
+    plates = {}
+    for row in range(2, MAX_SAMPLES):
+        number = ws.cell(row=row, column=col_of['Number'])
+        name = ws.cell(row=row, column=col_of['Sample name'])
+
+        
+    
+
     return []
 
 
