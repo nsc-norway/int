@@ -4,6 +4,7 @@ import json
 import re
 import sys
 import base64
+import datetime
 
 lims = Lims(config.BASEURI, config.USERNAME, config.PASSWORD)
 
@@ -45,21 +46,21 @@ def get_project_fields(package):
             'Sequencing method': fields['sequencing_type'],
             'Desired insert size': fields['insert_size'],
             'Sequencing instrument requested': fields['sequencing_instrument'],
-            'Read length requested': read_length(any_val(fields[f] for f in read_length_fields, "0")),
-            'Index requested/used': files.get('index_seq')
+            'Read length requested': read_length(any_val((fields[f] for f in read_length_fields), "0")),
             }
     return udfs
 
 def get_sample_fields(project_fields, sample):
     udfs_raw = {
-            'Sample Type': 'TEST',
-            'Concentration': sample['conc'],
+            'Sample type': 'TEST',
+            'Sample conc. (ng/ul)': sample['conc'],
             'A260/280': sample['a_260_280'],
             'A260/230': sample['a_260_230'],
-            'Voume (ul)': sample['volume'],
+            'Volume (ul)': sample['volume'],
             'Total DNA/RNA (ug)': sample['total_dna_rna'],
             'Primers, Linkers or RE sites present': sample['primers'],
-            'Approx no. reads Gb or lanes requested': sample['num_reads']
+            'Approx no. reads Gb or lanes requested': sample['num_reads'],
+            'Index requested/used': sample['index_seq'],
             }
     return dict(
             (k, v)
@@ -72,12 +73,17 @@ def import_package(package_data):
     project_name = package['fields']['project_name']
     apiuser = Researcher(lims, id="3") #APIUser
     projects = lims.get_projects(name=project_name)
-    #if projects:
-    #    raise ProjectNameError("Project named " + str(project_name) + " already exists")
-    #udfs = get_project_fields(package)
-    #project = lims.create_project(name=project_name, researcher=apiuser, udf=udfs)
-    # ALTERNATIVE DEBUG:
-    project = projects[0]
+    if projects:
+        raise ProjectNameError("Project named " + str(project_name) + " already exists")
+    udfs = get_project_fields(package)
+    project = lims.create_project(
+            name=project_name,
+            researcher=apiuser,
+            open_date=datetime.date.today(),
+            udf=udfs
+            )
+
+    samples = package['samples']
 
     container_names = set(sample['plate'] for sample in samples if sample['plate'])
     containers = {}
@@ -85,14 +91,12 @@ def import_package(package_data):
         plate96 = lims.get_container_types(name="96 well plate")[0]
         for cn in container_names:
             containers[cn] = lims.create_container(type=plate96, name=cn)
-    
-    samples = package['samples']
     for sample in samples:
         sample_udf = get_sample_fields(package['fields'], sample)
-        lims.create_sample('testmar', projects[0], containers.get(sample['plate']),
+        lims.create_sample(sample['sample_name'], project, containers.get(sample['plate']),
                 sample['position'], udf=sample_udf)
 
-    for f in package_data['files']:
+    for f in package['files']:
         gls = lims.glsstorage(project, f['filename'])
         f_obj = gls.post()
         data = base64.b64decode(f['content'])
