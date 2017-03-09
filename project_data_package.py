@@ -6,6 +6,7 @@ import json
 import io
 
 SERVER="https://portal.sequencing.uio.no"
+FILES=["sample_file"]
 
 def write_order_package(order_id, apikey, output_file):
     order = requests.get(
@@ -18,14 +19,15 @@ def write_order_package(order_id, apikey, output_file):
             headers = {'X-OrderPortal-API-key': apikey}
             ).json()
     order['owner'] = owner # Replacing with more detailed representation
-    files = order['files']
-    for f in files:
+    order['files'] = {}
+    for f in FILES:
+        filename = order['fields'][f]
         data = requests.get(
-                '{SERVER}/orders/{order_id}/file/{filename}'.format(
-                    SERVER=SERVER, order_id=order_id, filename=f['filename']
+                '{SERVER}/order/{order_id}/file/{filename}'.format(
+                    SERVER=SERVER, order_id=order_id, filename=filename
                     )
                 ).content
-        f['data'] = base64.b64encode(data).decode('us-ascii')
+        #order['files'][f] = base64.b64encode(data).decode('us-ascii')
 
     output_file.write(json.dumps(order))
 
@@ -34,7 +36,7 @@ def main():
     apikey = open(os.path.expanduser("~/portal-apikey")).read().strip()
     with open("testorder.json", "w") as output_file:
     #with io.StringIO() as output_file:
-        write_order_package("d6b4c1d7ffae4d1e9e9065e4e7e4a97d", apikey, output_file)
+        write_order_package("5739fee09fda4461ba6df4f0364271ef", apikey, output_file)
         #print(output_file.getvalue())
 
 if __name__ == "__main__":
