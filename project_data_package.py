@@ -27,18 +27,15 @@ def write_order_package(order_id, apikey, output_file):
                     SERVER=SERVER, order_id=order_id, filename=filename
                     )
                 ).content
-        #order['files'][f] = base64.b64encode(data).decode('us-ascii')
 
     output_file.write(json.dumps(order))
 
 
-def main():
+def main(order_id):
     apikey = open(os.path.expanduser("~/portal-apikey")).read().strip()
-    with open("testorder.json", "w") as output_file:
-    #with io.StringIO() as output_file:
-        write_order_package("5739fee09fda4461ba6df4f0364271ef", apikey, output_file)
-        #print(output_file.getvalue())
+    with open(order_id + ".json", "w") as output_file:
+        write_order_package(order_id, apikey, output_file)
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])
 
