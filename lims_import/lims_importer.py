@@ -2,6 +2,7 @@ import sys
 import os
 import requests
 import glob
+import json
 from genologics.lims import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon
@@ -95,8 +96,10 @@ class ImporterProgressWindow(QDialog):
     def __init__(self, parent, projects, jobs):
         super().__init__(parent)
         self.setWindowTitle("Importing projects...")
+        self.resize(500, 200)
         vbox = QVBoxLayout()
         self.treewidget = QTreeWidget(self)
+        self.treewidget.setColumnCount(2)
         vbox.addWidget(self.treewidget)
         self.close_button = QPushButton("Close", self)
         self.close_button.setEnabled(False)
@@ -105,13 +108,17 @@ class ImporterProgressWindow(QDialog):
         self.setLayout(vbox)
         self.projects = projects
         self.project_items = []
+        self.job_items = []
         self.jobs = jobs
         self.init_status_tree()
         self.setModal(True)
         self.show()
+        self.style = QCoreApplication.instance().style()
+        self.active_project = None
 
     def init_status_tree(self):
         self.project_items = []
+        self.job_items = []
         for project in self.projects:
             project_item = QTreeWidgetItem(self.treewidget, [project, ""])
             project_item.setFlags(Qt.NoItemFlags)
@@ -120,10 +127,36 @@ class ImporterProgressWindow(QDialog):
                 job_item = QTreeWidgetItem(project_item, [job, ""])
                 job_item.setFlags(Qt.NoItemFlags)
                 project_jobs.append(job_item)
-            self.project_items.append(project_jobs)
+            self.job_items.append(project_jobs)
+            self.project_items.append(project_item)
+        self.treewidget.resizeColumnToContents(0)
+        self.treewidget.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
-    def set_status(self):
-        pass
+    def set_active_project(self, index):
+        self.project_items[index].setExpanded(True)
+        self.project_items[index].setDisabled(False)
+        self.active_project = index
+
+    def set_project_result(self, index, error_flag, message=""):
+        if not error_flag:
+            self.project_items[index].setIcon(0, self.style.standardIcon(self.style.SP_DialogYesButton))
+            self.project_items[index].setExpanded(False)
+        self.project_items[index].setText(1, message)
+
+
+    def set_job_status(self, i_job, completion, message=""):
+        job = self.job_items[self.active_project][i_job]
+        job.setDisabled(False)
+        if completion == 0: # Ongoing
+            job.setIcon(0, self.style.standardIcon(self.style.SP_ArrowRight))
+        elif completion == 1: # OK
+            job.setIcon(0, self.style.standardIcon(self.style.SP_DialogYesButton))
+        else:
+            job.setIcon(0, self.style.standardIcon(self.style.SP_DialogNoButton))
+            self.set_project_result(self.active_project, True)
+        if message:
+            job.setText(1, message)
+        QCoreApplication.instance().processEvents()
 
     def set_complete(self):
         self.close_button.setEnabled(True)
@@ -131,13 +164,38 @@ class ImporterProgressWindow(QDialog):
 
 class Importer(object):
 
-    JOBS = ["Create project", "Upload files", "Create samples", "Set indexes", "Assign to workflow"]
+    JOBS = [
+            "Parse package file",
+            "Create project",
+            "Upload files",
+            "Create samples",
+            "Set indexes",
+            "Assign to workflow"
+            ]
 
-    def __init__(self, status_monitor, project_paths):
-        pass
+    def __init__(self, status_monitor, paths):
+        self.status_monitor = status_monitor
+        self.paths = paths
 
     def run(self):
-        return False
+        for i, path in enumerate(self.paths):
+            self.status_monitor.set_active_project(i)
+            self.status_monitor.set_job_status(0, 0) # Parse package
+            try:
+                with open(path) as f:
+                    package = json.load(f)
+            except IOError as e:
+                self.status_monitor.set_job_status(0, 2, str(e))
+                continue
+            except json.decoder.JSONDecodeError as e:
+                self.status_monitor.set_job_status(0, 2, "Unable to read package file")
+                continue
+            self.status_monitor.set_job_status(0, 1)
+
+            self.status_monitor.set_job_status(1, 0) # Create project in LIMS
+
+
+
 
 
 
@@ -206,7 +264,6 @@ class LimsImportMainWindow(QWidget):
         for p in sorted(glob.glob(os.path.join(self.showing_dir_path, "*.order"))):
             basename = os.path.basename(p)
             item = QListWidgetItem(basename, self.list)
-            item.setData(0, p)
             item.setFlags(Qt.ItemIsUserCheckable | item.flags())
             item.setCheckState(Qt.Checked)
 
@@ -219,9 +276,13 @@ class LimsImportMainWindow(QWidget):
                 project_list.append(item)
         project_names = [p.text() for p in project_list]
         lim = ImporterProgressWindow(self, project_names, Importer.JOBS)
-        importer = Importer(lim, [p.data() for p in project_list])
+        paths = [os.path.join(self.showing_dir_path, p.text()) for p in project_list]
+        importer = Importer(lim, paths)
         if importer.run():
-            pass
+            if self.delete_check.checkState == Qt.Checked:
+                for p in paths:
+                    os.path.remove(p)
+                self.load_file_list()
         lim.set_complete()
 
 
