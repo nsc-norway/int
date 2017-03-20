@@ -30,14 +30,17 @@ class LoginBox(QDialog):
         self.text_pw.textChanged.connect(self.changed)
         self.text_pw.setEchoMode(QLineEdit.Password)
         grid.addWidget(self.text_pw, 1, 1)
+        
+        self.status_text = QLabel("")
+        grid.addWidget(self.status_text, 2, 1)
 
         self.btn_ok = QPushButton("OK", self)
         self.btn_ok.setDefault(True)
         self.btn_ok.clicked.connect(self.ok_click)
         btn_quit = QPushButton("Quit", self)
         btn_quit.clicked.connect(self.reject)
-        grid.addWidget(btn_quit, 2, 0)
-        grid.addWidget(self.btn_ok, 2, 1)
+        grid.addWidget(btn_quit, 3, 0)
+        grid.addWidget(self.btn_ok, 3, 1)
 
         self.setLayout(grid)
         self.changed()
@@ -53,16 +56,30 @@ class LoginBox(QDialog):
             return True
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 401:
-                QMessageBox.warning(self, "LIMS error", "Invalid username or password for "
-                        + str(self.lims_url))
+                QMessageBox.warning(self, "LIMS error",
+                        "Invalid username or password.")
             return False
         except Exception as e:
+            QMessageBox.warning(self, "LIMS connection error",
+                    "Unable to connect to LIMS because of the following "
+                    "error: " + str(type(e)) + ": " + str(e))
             return False
         
     def ok_click(self):
+        self.status_text.setText("Logging in...")
+        self.set_inputs_enabled(False)
+        QCoreApplication.instance().processEvents()
         if self.lims_init():
             self.accept()
             self.finishLogin.emit()
+        else:
+            self.status_text.setText("")
+            self.set_inputs_enabled(True)
+
+    def set_inputs_enabled(self, enabled):
+        self.btn_ok.setEnabled(enabled)
+        self.text_user.setEnabled(enabled)
+        self.text_pw.setEnabled(enabled)
 
     def reject(self):
         super().reject()
