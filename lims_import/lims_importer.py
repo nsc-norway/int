@@ -1,9 +1,11 @@
 import sys
+import os
 import requests
+import glob
 from genologics.lims import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QCoreApplication, pyqtSignal
+from PyQt5.QtCore import QCoreApplication, pyqtSignal, Qt, QAbstractItemModel
 
 
 lims = None
@@ -89,22 +91,138 @@ class LoginBox(QDialog):
         self.btn_ok.setEnabled(bool(self.text_user.text() and self.text_pw.text()))
 
 
-class LimsImporter(QWidget):
+class ImporterProgressWindow(QDialog):
+    def __init__(self, parent, projects, jobs):
+        super().__init__(parent)
+        self.setWindowTitle("Importing projects...")
+        vbox = QVBoxLayout()
+        self.treewidget = QTreeWidget(self)
+        vbox.addWidget(self.treewidget)
+        self.close_button = QPushButton("Close", self)
+        self.close_button.setEnabled(False)
+        self.close_button.clicked.connect(self.accept)
+        vbox.addWidget(self.close_button)
+        self.setLayout(vbox)
+        self.projects = projects
+        self.project_items = []
+        self.jobs = jobs
+        self.init_status_tree()
+        self.setModal(True)
+        self.show()
+
+    def init_status_tree(self):
+        self.project_items = []
+        for project in self.projects:
+            project_item = QTreeWidgetItem(self.treewidget, [project, ""])
+            project_item.setFlags(Qt.NoItemFlags)
+            project_jobs = []
+            for job in self.jobs:
+                job_item = QTreeWidgetItem(project_item, [job, ""])
+                job_item.setFlags(Qt.NoItemFlags)
+                project_jobs.append(job_item)
+            self.project_items.append(project_jobs)
+
+    def set_status(self):
+        pass
+
+    def set_complete(self):
+        self.close_button.setEnabled(True)
+
+
+class Importer(object):
+
+    JOBS = ["Create project", "Upload files", "Create samples", "Set indexes", "Assign to workflow"]
+
+    def __init__(self, status_monitor, project_paths):
+        pass
+
+    def run(self):
+        return False
+
+
+
+class LimsImportMainWindow(QWidget):
     def __init__(self, lims_url):
         super().__init__()
-        self.resize(320, 240)
+        self.resize(500, 240)
         self.setWindowTitle("LIMS project import tool")
         icon = QIcon("rocket.png")
         self.setWindowIcon(icon)
 
-        self.show()
+        vbox = QVBoxLayout()
+        topbox = QHBoxLayout()
+
+        self.path_box = QLineEdit(self)
+        self.path_box.setText(self.get_default_path())
+        self.path_btn = QPushButton("Choose directory...", self)
+        self.path_btn.clicked.connect(self.path_dialog)
+        self.refresh_btn = QPushButton("Refresh", self)
+        self.refresh_btn.clicked.connect(self.load_file_list)
+        topbox.addWidget(self.path_box)
+        topbox.addWidget(self.path_btn)
+        topbox.addWidget(self.refresh_btn)
+        vbox.addLayout(topbox)
 
         self.list = QListWidget(self)
-        #self.list.setSize(300, 200)
-        self.login_box = LoginBox(self, lims_url)
+        vbox.addWidget(self.list)
 
-    def refresh(self):
-        pass
+        botbox = QHBoxLayout()
+
+        self.quit_btn = QPushButton("Quit", self)
+        self.quit_btn.clicked.connect(QCoreApplication.instance().quit)
+        botbox.addWidget(self.quit_btn)
+        self.delete_check = QCheckBox("Delete file(s) when imported", self)
+        self.delete_check.setChecked(True)
+        botbox.addWidget(self.delete_check)
+        self.import_btn = QPushButton("Import", self)
+        self.import_btn.clicked.connect(self.import_projects)
+        botbox.addWidget(self.import_btn)
+        vbox.addLayout(botbox)
+
+        self.setLayout(vbox)
+
+        self.load_file_list()
+        self.show()
+
+    def get_default_path(self):
+        """Gets the last valid drive letter in a range as default"""
+
+        path = os.path.expanduser("~")
+        for drive_letter in "DEFGHIJKL":
+            test = "{0}:\\".format(drive_letter)
+            if os.path.exists(test):
+                path = test
+        return path
+
+    def path_dialog(self):
+        self.path_box.setText(
+                QFileDialog.getExistingDirectory(self, "Select directory", self.path_box.text())
+                )
+        self.load_file_list()
+
+    def load_file_list(self):
+        self.showing_dir_path = self.path_box.text()
+        self.list.clear()
+        for p in sorted(glob.glob(os.path.join(self.showing_dir_path, "*.order"))):
+            basename = os.path.basename(p)
+            item = QListWidgetItem(basename, self.list)
+            item.setData(0, p)
+            item.setFlags(Qt.ItemIsUserCheckable | item.flags())
+            item.setCheckState(Qt.Checked)
+
+
+    def import_projects(self):
+        project_list = []
+        for i in range(self.list.count()):
+            item = self.list.item(i)
+            if item.checkState() == Qt.Checked:
+                project_list.append(item)
+        project_names = [p.text() for p in project_list]
+        lim = ImporterProgressWindow(self, project_names, Importer.JOBS)
+        importer = Importer(lim, [p.data() for p in project_list])
+        if importer.run():
+            pass
+        lim.set_complete()
 
 
 if __name__ == "__main__":
@@ -113,8 +231,8 @@ if __name__ == "__main__":
         lims_url = sys.argv[1]
     else:
         lims_url = "https://ous-lims.sequencing.uio.no/"
-    w = LimsImporter(lims_url)
-    a.setActiveWindow(w.login_box)
-    w.raise_()
+    w = LimsImportMainWindow(lims_url)
+    #a.setActiveWindow(w.login_box)
+    #w.raise_()
     sys.exit(a.exec_())
 
