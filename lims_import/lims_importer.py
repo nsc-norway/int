@@ -8,12 +8,16 @@ import datetime
 import base64
 import re
 from genologics.lims import *
-from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import QDialog, QWidget, QFileDialog,\
+                        QPushButton, QLineEdit, QCheckBox, QLabel, QListWidget, QTreeWidget,\
+                        QGridLayout, QHBoxLayout, QVBoxLayout,\
+                        QMessageBox, QApplication
 from PyQt5.QtGui import QIcon, QPixmap, QColor
 from PyQt5.QtCore import QCoreApplication, pyqtSignal, Qt, QAbstractItemModel
 
 
 lims = None
+# TODO debugging
 lims = Lims("https://sandbox-lims.sequencing.uio.no", "paalmbj", open("pass.txt").read().strip())
 
 class LoginBox(QDialog):
