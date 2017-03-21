@@ -10,6 +10,7 @@ import re
 from genologics.lims import *
 from PyQt5.QtWidgets import QDialog, QWidget, QFileDialog,\
                         QPushButton, QLineEdit, QCheckBox, QLabel, QListWidget, QTreeWidget,\
+                        QHeaderView,\
                         QGridLayout, QHBoxLayout, QVBoxLayout,\
                         QMessageBox, QApplication
 from PyQt5.QtGui import QIcon, QPixmap, QColor
@@ -57,6 +58,7 @@ class LoginBox(QDialog):
         self.setLayout(grid)
         self.changed()
         self.show()
+        self.raise_()
 
         self.lims_url = lims_url
 
@@ -372,11 +374,10 @@ class LimsImportMainWindow(QWidget):
         self.import_btn.clicked.connect(self.import_projects)
         botbox.addWidget(self.import_btn)
         vbox.addLayout(botbox)
-
         self.setLayout(vbox)
-
         self.load_file_list()
         self.show()
+        self.login_box = LoginBox(self, lims_url)
 
     def get_default_path(self):
         """Gets the last valid drive letter in a range as default"""
@@ -429,7 +430,6 @@ if __name__ == "__main__":
     else:
         lims_url = "https://ous-lims.sequencing.uio.no/"
     w = LimsImportMainWindow(lims_url)
-    #a.setActiveWindow(w.login_box)
-    #w.raise_()
+    a.setActiveWindow(w)
     sys.exit(a.exec_())
 
