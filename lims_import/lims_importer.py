@@ -9,8 +9,8 @@ import base64
 import re
 from genologics.lims import *
 from PyQt5.QtWidgets import QDialog, QWidget, QFileDialog,\
-                        QPushButton, QLineEdit, QCheckBox, QLabel, QListWidget, QTreeWidget,\
-                        QHeaderView,\
+                        QPushButton, QLineEdit, QCheckBox, QLabel, QListWidget, QListWidgetItem, QTreeWidget,\
+                        QTreeWidgetItem, QHeaderView,\
                         QGridLayout, QHBoxLayout, QVBoxLayout,\
                         QMessageBox, QApplication
 from PyQt5.QtGui import QIcon, QPixmap, QColor
