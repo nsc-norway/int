@@ -131,11 +131,8 @@ class Importer(object):
                     if self.packages:
                         package = datum
                     else:
-                        try:
-                            with open(datum) as f:
-                                package = json.load(f)
-                        except IOError as e:
-                            raise ImporterError("Unable to read file '" + str(f) + "': " + str(e))
+                        with open(datum) as f:
+                            package = json.load(f)
                     try:
                         project_name = package['title']
                         portal_id = package['iuid']
