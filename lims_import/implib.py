@@ -1,4 +1,5 @@
 import contextlib
+import json
 
 from PyQt5.QtWidgets import QDialog, QWidget, QFileDialog,\
                         QPushButton, QLineEdit, QCheckBox, QLabel, QListWidget, QListWidgetItem, QTreeWidget,\
@@ -113,7 +114,7 @@ class Importer(object):
             ]
     JOB_IDS = dict((j, i) for i, j in enumerate(JOBS))
 
-    def __init__(self, status_monitor, paths=None, packages=None):
+    def __init__(self, lims, status_monitor, paths=None, packages=None):
         self.status_monitor = status_monitor
         self.packages = packages
         self.paths = paths
@@ -145,12 +146,12 @@ class Importer(object):
                         raise ImporterError("Missing required field: " + str(e))
 
                 with self.status_monitor.job_status(self.JOB_IDS['Check for existing project']):
-                    projects = lims.get_projects(udf={'Portal ID': portal_id})
+                    projects = self.lims.get_projects(udf={'Portal ID': portal_id})
                     if projects:
                         raise ImporterException("Existing project(s) " +
                                 ", ".join(project.name for project in projects) +
                                 " has same portal-ID.")
-                    projects = lims.get_projects(name=project_name)
+                    projects = self.lims.get_projects(name=project_name)
                     if projects:
                         raise ImporterException("A project with name '" + project_name +
                                     "' already exists.")
@@ -159,10 +160,10 @@ class Importer(object):
                     project = self.create_lims_project(project_name, portal_id, fields)
 
                 with self.status_monitor.job_status(self.JOB_IDS['Upload files']):
-                    for file in files:
-                        gls = lims.glsstorage(project, file['filename'])
+                    for filename, filedict in files.items():
+                        gls = self.lims.glsstorage(project, filename)
                         f_obj = gls.post()
-                        data = base64.b64decode(file['data'])
+                        data = base64.b64decode(filedict['data'])
                         f_obj.upload(data)
 
                 with self.status_monitor.job_status(self.JOB_IDS['Create samples']):
@@ -181,11 +182,11 @@ class Importer(object):
 
 
     def create_lims_project(self, project_name, portal_id, fields):
-        users = lims.get_researchers(username=lims.username)
+        users = self.lims.get_researchers(username=lims.username)
         try:
             user = users[0]
         except IndexError:
-            raise ImporterError("User '" + lims.username + "' not found!")
+            raise ImporterError("User '" + self.lims.username + "' not found!")
         read_length_fields = [
                 "read_length_h2500",
                 "read_length_h2500_rapid",
@@ -216,7 +217,7 @@ class Importer(object):
                 'Read length requested': read_length,
                 'Portal ID': portal_id
                 }
-        return lims.create_project(
+        return self.lims.create_project(
                 name=project_name,
                 researcher=user,
                 open_date=datetime.date.today(),
@@ -227,9 +228,9 @@ class Importer(object):
         containers = {}
         if all('position' in sample for sample in samples) and \
                 all('plate' in sample for sample in samples):
-            container_96 = lims.get_container_types(name="96 well plate")[0]
+            container_96 = self.lims.get_container_types(name="96 well plate")[0]
             for plate in set(sample['plate'] for sample in samples):
-                containers[plate] = lims.create_container(type=container_96, name=plate)
+                containers[plate] = self.lims.create_container(type=container_96, name=plate)
         for i, sample in enumerate(samples, 1):
             sample_name = i
             try:
@@ -245,7 +246,7 @@ class Importer(object):
                             'A260/230': sample[5],
                             'Volume (ul)': sample[6]
                             }
-                lims.create_sample(sample_name, project, container, position, udf)
+                self.lims.create_sample(sample_name, project, container, position, udf)
             except IndexError as e:
                 raise ImporterError("Missing data for sample " + str(sample_name) + " -- import aborted")
 

@@ -101,7 +101,7 @@ class LimsImportMainWindow(QWidget):
         super().__init__()
         self.resize(500, 240)
         self.setWindowTitle("LIMS project import tool")
-        icon = QIcon("rocket.png")
+        icon = QIcon("arrows.png")
         self.setWindowIcon(icon)
 
         vbox = QVBoxLayout()
@@ -136,7 +136,7 @@ class LimsImportMainWindow(QWidget):
         self.setLayout(vbox)
         self.load_file_list()
         self.show()
-        self.login_box = LoginBox(self, lims_url)
+        #self.login_box = LoginBox(self, lims_url)
 
     def get_default_path(self):
         """Gets the last valid drive letter in a range as default"""
