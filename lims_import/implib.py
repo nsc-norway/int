@@ -1,5 +1,8 @@
 import contextlib
 import json
+import re
+import datetime
+import base64
 
 from PyQt5.QtWidgets import QDialog, QWidget, QFileDialog,\
                         QPushButton, QLineEdit, QCheckBox, QLabel, QListWidget, QListWidgetItem, QTreeWidget,\
@@ -118,13 +121,14 @@ class Importer(object):
         self.status_monitor = status_monitor
         self.packages = packages
         self.paths = paths
+        self.lims = lims
 
     def run(self):
         all_ok = True
         if self.packages:
             data = self.packages
         else:
-            data = self.paths 
+            data = self.paths
         for i, datum in enumerate(data):
             try:
                 self.status_monitor.set_active_project(i)
@@ -182,7 +186,7 @@ class Importer(object):
 
 
     def create_lims_project(self, project_name, portal_id, fields):
-        users = self.lims.get_researchers(username=lims.username)
+        users = self.lims.get_researchers(username=self.lims.username)
         try:
             user = users[0]
         except IndexError:
@@ -203,20 +207,23 @@ class Importer(object):
                 read_length = int(re.match(r"(\d)+", val).group(0)) 
                 break
 
-        udfs = {
-                'Project type': 'Sensitive' if fields['sensitive_data'] else 'Non-sensitive',
-                'Method used to purify DNA/RNA': fields['purify_method'],
-                'Method used to determine concentration': fields['concentration_method'],
-                'Sample buffer': fields['buffer'],
-                'Sample prep requested': fields.get('rna_sample_preps') or fields.get('dna_sample_prep') or 'None',
-                'Species': fields['species'],
-                'Reference genome': fields['reference_genome'],
-                'Sequencing method': fields['sequencing_type'],
-                'Desired insert size': fields['insert_size'],
-                'Sequencing instrument requested': fields['sequencing_instrument'],
-                'Read length requested': read_length,
-                'Portal ID': portal_id
-                }
+        try:
+            udfs = {
+                    'Project type': 'Sensitive' if fields['sensitive_data'] else 'Non-sensitive',
+                    'Method used to purify DNA/RNA': fields['purify_method'],
+                    'Method used to determine concentration': fields['concentration_method'],
+                    'Sample buffer': fields['buffer'],
+                    'Sample prep requested': fields.get('rna_sample_preps') or fields.get('dna_sample_prep') or 'None',
+                    'Species': fields['species'],
+                    'Reference genome': fields['reference_genome'],
+                    'Sequencing method': fields['sequencing_type'],
+                    'Desired insert size': fields['insert_size'],
+                    'Sequencing instrument requested': fields['sequencing_instrument'],
+                    'Read length requested': read_length,
+                    'Portal ID': portal_id
+                    }
+        except KeyError as e:
+            raise RuntimeError("The required field {0} is missing from the package".format(e))
         return self.lims.create_project(
                 name=project_name,
                 researcher=user,

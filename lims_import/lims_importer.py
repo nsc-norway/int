@@ -173,7 +173,7 @@ class LimsImportMainWindow(QWidget):
         project_names = [p.text() for p in project_list]
         lim = ImporterProgressWindow(self, project_names, Importer.JOBS)
         paths = [os.path.join(self.showing_dir_path, p.text()) for p in project_list]
-        importer = Importer(lim, paths)
+        importer = Importer(lims, lim, paths)
         if importer.run():
             if self.delete_check.checkState == Qt.Checked:
                 for p in paths:
